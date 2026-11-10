@@ -1,0 +1,82 @@
+# Esteira de PR do categories-service: lint e testes, sem AWS e sem deploy.
+# Os workflows reutilizáveis com synth/diff e deploy entram na tarefa 6.3.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  MIN_COVERAGE: "80"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: go mod tidy sem diferenças
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+      - name: gofmt
+        run: |
+          fora=$(gofmt -l .)
+          if [ -n "$fora" ]; then
+            echo "Arquivos fora do gofmt:"; echo "$fora"; exit 1
+          fi
+      - run: go vet -tags integration ./...
+      - uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.15
+          args: --build-tags integration
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      # Mesma versão do docker-compose do infra-base (local/docker-compose.yml).
+      dynamodb:
+        image: amazon/dynamodb-local:2.6.1
+        ports: ["8000:8000"]
+    env:
+      DYNAMODB_ENDPOINT: http://localhost:8000
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Espera o DynamoDB Local
+        run: |
+          for _ in $(seq 30); do
+            curl -s -o /dev/null "$DYNAMODB_ENDPOINT" && exit 0
+            sleep 1
+          done
+          echo "::error::DynamoDB Local não respondeu"; exit 1
+      - name: Testes unitários e de integração
+        run: go test -race -count=1 -tags integration -covermode=atomic -coverprofile=coverage.out ./... | tee test.out
+      - name: Cobertura mínima por pacote
+        run: |
+          echo "| Pacote | Cobertura |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| --- | --- |" >> "$GITHUB_STEP_SUMMARY"
+          falhou=0
+          while read -r pacote pct; do
+            echo "| \`$pacote\` | $pct% |" >> "$GITHUB_STEP_SUMMARY"
+            if awk -v p="$pct" -v m="$MIN_COVERAGE" 'BEGIN { exit !(p < m) }'; then
+              echo "::error::$pacote tem $pct% de cobertura, abaixo de $MIN_COVERAGE%"
+              falhou=1
+            fi
+          done < <(grep -E '^ok' test.out | sed -E 's/^ok[[:space:]]+([^[:space:]]+).*coverage: ([0-9.]+)%.*/\1 \2/')
+          echo "Total: $(go tool cover -func=coverage.out | tail -1 | awk '{print $3}')" >> "$GITHUB_STEP_SUMMARY"
+          exit $falhou

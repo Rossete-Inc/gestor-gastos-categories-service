@@ -12,6 +12,7 @@ require (
 )
 
 require (
+	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.26 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.5.11 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.8.11 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/v4a v1.5.11 // indirect
@@ -19,5 +20,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/eventbridge v1.55.10 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding v1.13.24 // indirect
 	github.com/aws/aws-sdk-go-v2/service/internal/endpoint-discovery v1.13.11 // indirect
+	github.com/aws/aws-sdk-go-v2/service/lambda v1.114.3 // indirect
 	github.com/aws/smithy-go v1.28.8 // indirect
 )

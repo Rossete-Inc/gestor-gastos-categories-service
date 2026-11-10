@@ -115,40 +115,40 @@ func cancelada(codigos ...string) error {
 	return tce
 }
 
-var falha = errors.New("ProvisionedThroughputExceededException")
+var errFalha = errors.New("ProvisionedThroughputExceededException")
 
 func TestErrosDoDynamo(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Query", func(t *testing.T) {
-		_, err := novoStore(&fakeAPI{queryErr: falha}).Visiveis(ctx, "u-a")
+		_, err := novoStore(&fakeAPI{queryErr: errFalha}).Visiveis(ctx, "u-a")
 		exigeInterno(t, err)
 	})
 	t.Run("BatchGetItem", func(t *testing.T) {
-		_, err := novoStore(&fakeAPI{getErr: falha}).Obter(ctx, "u-a", "c1")
+		_, err := novoStore(&fakeAPI{getErr: errFalha}).Obter(ctx, "u-a", "c1")
 		exigeInterno(t, err)
 	})
 	t.Run("TransactWriteItems ao criar", func(t *testing.T) {
-		exigeInterno(t, novoStore(&fakeAPI{txErr: falha}).Criar(ctx, pet(t)))
+		exigeInterno(t, novoStore(&fakeAPI{txErr: errFalha}).Criar(ctx, pet(t)))
 	})
 	t.Run("ID repetido ao criar não é nome duplicado", func(t *testing.T) {
 		exigeInterno(t, novoStore(&fakeAPI{txErr: cancelada("ConditionalCheckFailed", "None")}).Criar(ctx, pet(t)))
 	})
 	t.Run("TransactWriteItems ao excluir", func(t *testing.T) {
-		exigeInterno(t, novoStore(&fakeAPI{txErr: falha}).Excluir(ctx, pet(t)))
+		exigeInterno(t, novoStore(&fakeAPI{txErr: errFalha}).Excluir(ctx, pet(t)))
 	})
 	t.Run("conflito de transação ao excluir", func(t *testing.T) {
 		exigeInterno(t, novoStore(&fakeAPI{txErr: cancelada("None", "TransactionConflict")}).Excluir(ctx, pet(t)))
 	})
 	t.Run("BatchWriteItem", func(t *testing.T) {
-		exigeInterno(t, novoStore(&fakeAPI{writeErr: falha}).GravarPadrao(ctx, categoria.Padrao()))
+		exigeInterno(t, novoStore(&fakeAPI{writeErr: errFalha}).GravarPadrao(ctx, categoria.Padrao()))
 	})
 	t.Run("Query ao excluir do usuário", func(t *testing.T) {
-		_, err := novoStore(&fakeAPI{queryErr: falha}).ExcluirDoUsuario(ctx, "u-a")
+		_, err := novoStore(&fakeAPI{queryErr: errFalha}).ExcluirDoUsuario(ctx, "u-a")
 		exigeInterno(t, err)
 	})
 	t.Run("BatchWriteItem ao excluir do usuário", func(t *testing.T) {
-		f := &fakeAPI{writeErr: falha, queryPages: []*dynamodb.QueryOutput{{Items: []map[string]types.AttributeValue{{"PK": s("USER#u-a"), "SK": s("CAT#CARTAO#c1")}}}}}
+		f := &fakeAPI{writeErr: errFalha, queryPages: []*dynamodb.QueryOutput{{Items: []map[string]types.AttributeValue{{"PK": s("USER#u-a"), "SK": s("CAT#CARTAO#c1")}}}}}
 		_, err := novoStore(f).ExcluirDoUsuario(ctx, "u-a")
 		exigeInterno(t, err)
 	})
