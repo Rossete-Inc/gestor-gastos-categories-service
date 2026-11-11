@@ -1,0 +1,11 @@
+{
+  "app": "go mod download && go run .",
+  "watch": {
+    "include": ["**"],
+    "exclude": ["README.md", "cdk*.json", "go.mod", "go.sum", "**/*_test.go"]
+  },
+  "context": {
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:target-partitions": ["aws"]
+  }
+}
