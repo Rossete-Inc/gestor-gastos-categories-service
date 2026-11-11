@@ -26,11 +26,11 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/Rossete-Inc/gestor-gastos-go-commons/config"
-	"github.com/Rossete-Inc/gestor-gastos-go-commons/logging"
 	"github.com/Rossete-Inc/gestor-gastos-categories-service/internal/app"
 	"github.com/Rossete-Inc/gestor-gastos-categories-service/internal/handler"
 	"github.com/Rossete-Inc/gestor-gastos-categories-service/internal/store"
+	"github.com/Rossete-Inc/gestor-gastos-go-commons/config"
+	"github.com/Rossete-Inc/gestor-gastos-go-commons/logging"
 	"github.com/aws/aws-lambda-go/lambda"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/dynamodb"
