@@ -14,8 +14,8 @@ Serviço de categorias do Gestor de Gastos (Go, Lambda, DynamoDB). Guarda as cat
 | `cmd/local` | Servidor HTTP local que chama os mesmos handlers da Lambda (ver "Rodar localmente") |
 | `internal/memstore` | Store em memória com a mesma semântica do DynamoDB, para os testes unitários |
 | `internal/dynamotest` | Cria tabelas temporárias no DynamoDB Local para os testes de integração |
-
-O `cmd/lambda` e o CDK entram na tarefa 7.6, no padrão da 6.5.
+| `cmd/lambda` | Função na AWS: o mesmo `handler.Lambda` atende o invoke do BFF, o evento `UserDeleted` e a tarefa de seed |
+| `infra` | App AWS CDK (Go), módulo separado: stack `gestor-gastos-<env>-categories` (ver "Na AWS") |
 
 ## Contrato com o BFF
 
@@ -52,7 +52,7 @@ Tabela `gestor-gastos-categories`, com as chaves do contrato com o seed do infra
 
 Os atributos das categorias são os mesmos que o seed grava: `categoriaId`, `dono`, `grupo`, `nome` e `cor`, mais `criadoEm` nas personalizadas. A trava de nome é gravada na mesma transação da categoria e garante o nome único mesmo com duas criações simultâneas. Ela fica na partição do usuário e não aparece nas listagens, que filtram por `CAT#`.
 
-**Fonte da verdade das categorias padrão:** `internal/categoria/padrao.go`. O seed do infra-base (`local/seed/dados.go`) grava uma cópia idêntica no ambiente local, e o `TestPadraoIgualAoSeed` compara as duas quando o infra-base está clonado ao lado deste repositório. O próprio serviço regrava as padrão de forma idempotente (`SemearPadrao`): o `cmd/local` faz isso ao subir, e o gatilho na nuvem é definido na tarefa 7.6.
+**Fonte da verdade das categorias padrão:** `internal/categoria/padrao.go`. O seed do infra-base (`local/seed/dados.go`) grava uma cópia idêntica no ambiente local, e o `TestPadraoIgualAoSeed` compara as duas quando o infra-base está clonado ao lado deste repositório. O próprio serviço regrava as padrão de forma idempotente (`SemearPadrao`): o `cmd/local` faz isso ao subir, e, na nuvem, um custom resource do CDK invoca a versão nova da função com `{"tarefa":"SemearPadrao"}` a cada deploy que muda o código.
 
 ## Rodar localmente
 
@@ -113,6 +113,20 @@ curl -s -o /dev/null -w '%{http_code}\n' -X POST localhost:8083/events -H 'Conte
 
 Erros chegam dentro do envelope, por exemplo `{"error":{"status":409,"code":"categoria_duplicada",...}}`. Para inspecionar a tabela, abra o dynamodb-admin em http://localhost:8001.
 
+## Na AWS
+
+A esteira (`.github/workflows/ci.yml`, sobre o `go-service.yml` do infra-base) implanta a stack `gestor-gastos-dev-categories` a cada merge na `main`, no padrão do users-service (tarefa 6.5):
+
+| Recurso | Detalhe |
+| --- | --- |
+| Tabela `gestor-gastos-dev-categories` | On-demand, `RETAIN`, chaves da seção DynamoDB, sem índices |
+| Lambda `gestor-gastos-dev-categories` | arm64, 256 MB, 10 s, alias `live` com canary do CodeDeploy (10% por 5 min) e rollback pelo alarme de erros; logs por 7 dias |
+| Regra `gestor-gastos-dev-categories-user-deleted` | `source` `gestor-gastos.users`, `detail-type` `UserDeleted`, com retentativas e a DLQ do barramento. O users-service tem de publicar com esse `source` (tarefa 10.1) |
+| Seed das padrão | Custom resource que invoca a versão nova com `{"tarefa":"SemearPadrao"}`; o physical id é o número da versão, então roda sempre que o código muda |
+| SSM | `/gestor-gastos/dev/categories/function-arn` (lido pelo BFF) e `/gestor-gastos/dev/categories/table-name` |
+
+Depende do SSM publicado pela stack `events` do infra-base (`events/bus-name` e `events/dlq-arn`). Os testes de assertion rodam com `cd infra && go test ./...`, sem AWS.
+
 ## Testes
 
 ```sh
@@ -128,4 +142,4 @@ task local:up
 go test -tags integration ./... -v
 ```
 
-A esteira (`.github/workflows/ci.yml`) roda lint e os testes unitários e de integração em todo PR, com um DynamoDB Local como serviço. Ela reprova o pacote que ficar abaixo de 80% de cobertura.
+A esteira (`.github/workflows/ci.yml`) roda lint e os testes unitários e de integração em todo PR, com um DynamoDB Local como serviço, além do `cdk diff` contra `dev`.

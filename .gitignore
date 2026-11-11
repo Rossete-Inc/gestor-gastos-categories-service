@@ -1,3 +1,15 @@
 coverage.out
 test.out
 *.test
+
+# Binários das Lambdas (go-service.yml: dist/<pasta>/bootstrap) e o zip do CDK
+dist/
+
+# CDK
+cdk.out/
+.cdk.staging/
+cdk.context.json
+
+# Binário do `go build` no infra/
+infra/infra
+infra/infra.exe
