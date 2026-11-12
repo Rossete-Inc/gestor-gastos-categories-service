@@ -125,6 +125,8 @@ A esteira (`.github/workflows/ci.yml`, sobre o `go-service.yml` do infra-base) i
 | Seed das padrão | Custom resource que invoca a versão nova com `{"tarefa":"SemearPadrao"}`; o physical id é o número da versão, então roda sempre que o código muda |
 | SSM | `/gestor-gastos/dev/categories/function-arn` (lido pelo BFF) e `/gestor-gastos/dev/categories/table-name` |
 
+**Todo merge na `main` passa pelo canary.** O `go build` da esteira grava a revisão do Git no binário (`-buildvcs` fica no padrão), então cada commit, até um que só mude este README, gera um asset novo, uma versão nova da Lambda e um deploy do CodeDeploy de 5 minutos. O primeiro deploy da stack só cria o alias `live` na versão 1, sem canary. Para conferir o último: `aws deploy list-deployments --application-name <app> --deployment-group-name gestor-gastos-dev-categories`.
+
 Depende do SSM publicado pela stack `events` do infra-base (`events/bus-name` e `events/dlq-arn`). Os testes de assertion rodam com `cd infra && go test ./...`, sem AWS.
 
 ## Testes
